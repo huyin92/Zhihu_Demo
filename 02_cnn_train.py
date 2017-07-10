@@ -23,12 +23,14 @@ def load_embedding_dict(embedding_file):
     lines=open(embedding_file,'r').readlines()
     print("load embeddings_dict......")
     embeddings_dict={}
-    for i in tqdm(xrange(len(lines))):
-        if(i<len(lines)-1):
-            line_list=lines[i+1].strip().split(' ')
-            word=line_list[0]
-            embedding=np.array([float(v) for v in line_list[1:257]],dtype=np.float32)
-            embeddings_dict[word]=embedding
+    
+    len_of_lines = len(lines)
+    for i in tqdm(xrange(len_of_lines - 1)):
+        line_list=lines[i+1].strip().split(' ')
+        word=line_list[0]
+        embedding=np.array([float(v) for v in line_list[1:257]],dtype=np.float32)
+        embeddings_dict[word]=embedding
+
     #embeddings=np.array(embeddings)
     print("finish to load embeddings_dict......")
     print("len(embeddings_dict):",len(embeddings_dict))

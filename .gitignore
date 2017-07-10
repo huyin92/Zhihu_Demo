@@ -1,0 +1,7 @@
+ieee_zhihu_cup/*
+models/*
+*.swp
+*.csv
+vocab_dict
+*.txt
+

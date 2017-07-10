@@ -1,7 +1,7 @@
 
 # coding: utf-8
 # In[1]:
-#---------------------------------------------import pakage----------------------------------------------#
+#---------------------------------------------import package----------------------------------------------#
 import tensorflow as tf
 import numpy as np
 import os
@@ -11,7 +11,7 @@ import pandas as pd
 import math
 from tqdm import tqdm
 from six.moves import xrange
-#-----------------------------------------endding import pakage------------------------------------------#
+#-----------------------------------------endding import package------------------------------------------#
 
 
 

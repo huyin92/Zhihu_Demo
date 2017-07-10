@@ -1,5 +1,4 @@
-
-# coding: utf-8
+## coding: utf-8
 # In[1]:
 #---------------------------------------------import package----------------------------------------------#
 import tensorflow as tf
@@ -9,6 +8,7 @@ import time
 import numpy as np
 import pandas as pd
 import math
+import gc
 from tqdm import tqdm
 from six.moves import xrange
 #-----------------------------------------endding import package------------------------------------------#
@@ -130,6 +130,8 @@ tf.flags.DEFINE_integer("evaluate_every", 50, "Evaluate model on dev set after t
 tf.flags.DEFINE_integer("checkpoint_every", 200, "Save model after this many steps (default: 200)")
 # 保存多少个模型
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+
+tf.flags.DEFINE_string("checkpoint_file", "", "model restore")
 #--------------------------------------endding define Parameters-------------------------------------------#
 
 
@@ -148,211 +150,272 @@ for attr, value in sorted(FLAGS.__flags.items()):
 print("")
 
 
+
+
+
+
 # In[3]:
+def run_training(data_file = '', checkpoint_file = ''):
 
-y = []
-x_text = []
+    if os.path.exists(data_file):
+        FLAGS.data_file = data_file
+        print('load data file: %s' % data_file)
 
-# 读取训练数据和标签
-reader = pd.read_table(FLAGS.data_file,sep='\t',header=None)
-for i in tqdm(xrange(reader.shape[0])):
-    # 按','切分标签
-    temp = reader.iloc[i][1].split(',')
-    # 如果分类数大于5，只取前5个分类
-    if (len(temp)>5):
-        temp = temp[0:5]
-    # 设置标签的对应位置为1，其余位置为0
-    label = np.zeros(1999)
-    for temp_label in temp:
-        label[int(temp_label)] = 1
-    y.append(label)
-    x_text.append(reader.iloc[i][0])
+    if os.path.exists(checkpoint_file + '.index'):
+        FLAGS.checkpoint_file = checkpoint_file
+        print('load checkpoint file: %s' % checkpoint_file)
 
+    # 读取训练数据和标签
+    reader = pd.read_table(FLAGS.data_file,sep='\t',header=None)
 
-# In[4]:
+    total_sample_count = reader.shape[0]
+    len_of_label = 1999
+    y = np.zeros([total_sample_count, len_of_label], dtype = np.bool)
+    x = np.zeros(total_sample_count, dtype = np.object)
 
-# 打印x_text和y的前5行
-print(x_text[0:5])
-y = np.array(y, dtype = np.float32)
-print(y[0:5])
+    max_document_length = 0
 
+    data_ind = 0
+    for i in tqdm(xrange(total_sample_count)):
 
-# In[5]:
+        line = reader.iloc[i]
 
-# Build vocabulary
-# 计算一段文本中最多的词汇数
-max_document_length = max([len(x.split(",")) for x in x_text])
-vocab_processor = tf.contrib.learn.preprocessing.VocabularyProcessor(max_document_length)
+        text = line[0]
 
-x = np.array(list(vocab_processor.fit_transform(x_text)))
-print("x_shape:",x.shape)
-print("y_shape:",y.shape)
+        if type(text) != str: 
+            continue
 
-#保存词典
-vocab_processor.save("vocab_dict")
+        max_document_length = max(max_document_length, len(text.split(',')))
 
-#[index:word]词典
-vocab_dict = vocab_processor.vocabulary_._mapping   #键值为[word:index]
-vocab_dict = {i:w for w,i in vocab_dict.items()}   #键值为[index:word]
-#print("vocab_dict",vocab_dict)
-print("len(vocab_dict):",len(vocab_dict))
+        # 按','切分标签
+        temp = line[1].split(',')
 
-#构建与vocab_dict相对应的word embeddings(shape=[vocab_size, embedding_size])
-embeddings_dict=load_embedding_dict(FLAGS.embedding_file)
-embeddings=[]
-for i in  tqdm(xrange(len(vocab_dict))):
-    #如果字典vocab_dict的词在embeddings_dict词典中出现则按照其对应的词序添加进embeddings词向量
-    if vocab_dict[i] in embeddings_dict:    
-        embeddings.append(embeddings_dict[vocab_dict[i]])
-    #如果在词向量字典中找不到对应的词向量则随机生成
-    else:
-        embeddings.append(np.array(np.random.uniform(-1.0, 1.0,size=[FLAGS.embedding_dim]),dtype=np.float32))
-embeddings=np.array(embeddings)
-print("embeddings.shape:",embeddings.shape)
-print(embeddings[0:3])
+        # 如果分类数大于5，只取前5个分类
+        ind = [int(t) for t in temp[0: min(5, len(temp))]]
+        if len(temp) > 5:
+            print(len(temp))
 
+        # 设置标签的对应位置为1，其余位置为0
+        y[data_ind][ind] = 1
 
+        x[data_ind] = text
+        data_ind += 1
+        pass
 
-# Split train/test set
-# 数据集切分为两部分，训练集和验证集
-dev_sample_index = -1 * int(FLAGS.dev_sample_percentage * float(len(y)))
-x_train, x_dev = x[:dev_sample_index], x[dev_sample_index:]
-y_train, y_dev = y[:dev_sample_index], y[dev_sample_index:]
+    #释放内存
+    #reader = None
+    del reader
+    gc.collect()
 
-print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
-print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
-print("x:",x_train[0:5])
-print("y:",y_train[0:5])
+    # In[4]:
+    if data_ind < total_sample_count:
+        x = x[0 : data_ind]
+        y = y[0 : data_ind, :]
+        print('filter some invalid data!')
+
+    # 打印x和y的前行
+    print(x[0:5])
+    # y = np.array(y, dtype = np.float32)
+    print(y[0:5])
 
 
-# sequence_length-最长词汇数
-sequence_length=x_train.shape[1]
-# num_classes-分类数
-num_classes=y_train.shape[1]
-# vocab_size-总词汇数
-vocab_size=len(vocab_processor.vocabulary_)
-# embedding_size-词向量长度
-embedding_size=FLAGS.embedding_dim
-# filter_sizes-卷积核尺寸3，4，5
-filter_sizes=list(map(int, FLAGS.filter_sizes.split(",")))
-# num_filters-卷积核数量
-num_filters=FLAGS.num_filters
-
-
-
-
-
-
-#---------------------------------------------define network---------------------------------------------#
-# 定义三个placeholder
-input_x = tf.placeholder(tf.int32, [None, x_train.shape[1]], name="input_x")
-input_y = tf.placeholder(tf.float32, [None, y_train.shape[1]], name="input_y")
-dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
-
-# Embedding layer
-with tf.device('/cpu:0'), tf.name_scope("embedding"):
-    embeddings=tf.Variable(embeddings,trainable=True,name="embeddings")
-    #Weights = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name="Weights")
-    ## shape:[None, sequence_length, embedding_size]
-    embedded_chars = tf.nn.embedding_lookup(embeddings, input_x)
-    # 添加一个维度，shape:[None, sequence_length, embedding_size, 1]
-    embedded_chars_expanded = tf.expand_dims(embedded_chars, -1)
-
-# Create a convolution + maxpool layer for each filter size
-pooled_outputs = []
-for i, filter_size in enumerate(filter_sizes):
-    with tf.name_scope("conv-maxpool-%s" % filter_size):
-        # Convolution Layer
-        filter_shape = [filter_size, embedding_size, 1, num_filters]
-        W = tf.Variable(
-            tf.truncated_normal(filter_shape, stddev=0.1), name="W")
-        b = tf.Variable(
-            tf.constant(0.1, shape=[num_filters]), name="b")
-        conv = tf.nn.conv2d(
-            embedded_chars_expanded,
-            W,
-            strides=[1, 1, 1, 1],
-            padding="VALID",
-            name="conv")
-        # Apply nonlinearity
-        h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
-        # Maxpooling over the outputs
-        pooled = tf.nn.max_pool(
-            h,
-            ksize=[1, sequence_length - filter_size + 1, 1, 1],
-            strides=[1, 1, 1, 1],
-            padding='VALID',
-            name="pool")
-        pooled_outputs.append(pooled)
-
-# Combine all the pooled features
-num_filters_total = num_filters * len(filter_sizes)
-print("num_filters_total:", num_filters_total)
-h_pool = tf.concat(pooled_outputs, 3)
-h_pool_flat = tf.reshape(h_pool, [-1, num_filters_total])
-
-# Add dropout
-with tf.name_scope("dropout"):h_drop = tf.nn.dropout(h_pool_flat,dropout_keep_prob)
-
-# Final (unnormalized) scores and predictions
-with tf.name_scope("output"):
-    W = tf.get_variable(
-        "W",
-        shape=[num_filters_total, num_classes],
-        initializer=tf.contrib.layers.xavier_initializer())
-    b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
-    scores = tf.nn.xw_plus_b(h_drop, W, b, name="scores")
+    # In[5]:
     
-# 定义loss
-with tf.name_scope("loss"):
-    loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=scores, labels=input_y))
+    # Build vocabulary
+    # 计算一段文本中最多的词汇数
+    #max_document_length = max([len(x.split(",")) for x in x_text])
+    #vocab_processor = tf.contrib.learn.preprocessing.VocabularyProcessor(max_document_length)
+    #x = np.array(list(vocab_processor.fit_transform(x_text)))
+    #保存词典
+    #vocab_processor.save("vocab_dict")
 
-# 定义优化器
-with tf.name_scope("optimizer"):
-    optimizer = tf.train.AdamOptimizer(1e-3).minimize(loss)
-#------------------------------------------endding define network-----------------------------------------#
+    # 载入字典
+    vocab_processor = tf.contrib.learn.preprocessing.VocabularyProcessor.restore("vocab_dict")
+    x = np.array(list(vocab_processor.transform(x)))
+    print("x_shape:",x.shape)
+    print("y_shape:",y.shape)
 
 
 
-#---------------------------------------------  run  ---------------------------------------------#
-# 定义saver，只保存最新的5个模型
-saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
+    #[index:word]词典
+    vocab_dict = vocab_processor.vocabulary_._mapping   #键值为[word:index]
+    vocab_dict = {i:w for w,i in vocab_dict.items()}    #键值为[index:word]
+    #print("vocab_dict",vocab_dict)
+    print("len(vocab_dict):",len(vocab_dict))
+    
+    #构建与vocab_dict相对应的word embeddings(shape=[vocab_size, embedding_size])
+    embeddings_dict=load_embedding_dict(FLAGS.embedding_file)
+    embeddings=[]
+    for i in  tqdm(xrange(len(vocab_dict))):
+        #如果字典vocab_dict的词在embeddings_dict词典中出现则按照其对应的词序添加进embeddings词向量
+        if vocab_dict[i] in embeddings_dict:    
+            embeddings.append(embeddings_dict[vocab_dict[i]])
+        #如果在词向量字典中找不到对应的词向量则随机生成
+        else:
+            embeddings.append(np.array(np.random.uniform(-1.0, 1.0,size=[FLAGS.embedding_dim]),dtype=np.float32))
+    embeddings=np.array(embeddings)
+    print("embeddings.shape:",embeddings.shape)
+    print(embeddings[0:3])
 
-with tf.Session() as sess:
-    predict_top_5 = tf.nn.top_k(scores, k=5)
-    label_top_5 = tf.nn.top_k(input_y, k=5) 
-    sess.run(tf.global_variables_initializer())
-    i = 0
-    # 生成数据
-    batches = batch_iter(
-        list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
-    for batch in batches:
-        i = i + 1
-        # 得到一个batch的数据
-        x_batch, y_batch = zip(*batch)
-        # 优化模型
-        sess.run([optimizer],feed_dict={input_x:x_batch, input_y:y_batch, dropout_keep_prob:FLAGS.dropout_keep_prob})
 
-        # 每训练50次测试1次
-        if (i % FLAGS.evaluate_every == 0):
-            print ("Evaluation:step",i)
-            predict_5, label_5, _loss = sess.run([predict_top_5,label_top_5,loss],feed_dict={input_x:x_batch,
-                                                                                      input_y:y_batch,
-                                                                                      dropout_keep_prob:1.0})
-            print ("label:",label_5[1][:5])
-            print ("predict:",predict_5[1][:5])
-            print ("predict:",predict_5[0][:5])
-            print ("loss:",_loss)
-            predict_label_and_marked_label_list = []
-            for predict,label in zip(predict_5[1],label_5[1]):
-                predict_label_and_marked_label_list.append((list(predict),list(label)))
-            score = eval(predict_label_and_marked_label_list)
-            print("score:",score)
 
-        # 每训练200次保存1次模型
-        if (i % FLAGS.checkpoint_every == 0):
-            path = saver.save(sess, "models/model", global_step=i)
-            print("Saved model checkpoint to {}".format(path))
-#-----------------------------------------endding  run  -------------------------------------------#
+    # Split train/test set
+    # 数据集切分为两部分，训练集和验证集
+    dev_sample_index = -1 * int(FLAGS.dev_sample_percentage * float(len(y)))
+    x_train, x_dev = x[:dev_sample_index], x[dev_sample_index:]
+    y_train, y_dev = y[:dev_sample_index], y[dev_sample_index:]
+    
+    print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
+    print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
+    print("x:",x_train[0:5])
+    print("y:",y_train[0:5])
 
-eval([([1, 2, 3, 4, 5], [4, 5, 6, 7])])
+
+    # sequence_length-最长词汇数
+    sequence_length=x_train.shape[1]
+    # num_classes-分类数
+    num_classes=y_train.shape[1]
+    # vocab_size-总词汇数
+    vocab_size=len(vocab_processor.vocabulary_)
+    # embedding_size-词向量长度
+    embedding_size=FLAGS.embedding_dim
+    # filter_sizes-卷积核尺寸3，4，5
+    filter_sizes=list(map(int, FLAGS.filter_sizes.split(",")))
+    # num_filters-卷积核数量
+    num_filters=FLAGS.num_filters
+
+    #---------------------------------------------define network---------------------------------------------#
+    # 定义三个placeholder
+    input_x = tf.placeholder(tf.int32, [None, x_train.shape[1]], name="input_x")
+    input_y = tf.placeholder(tf.float32, [None, y_train.shape[1]], name="input_y")
+    dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
+    
+    # Embedding layer
+    with tf.device('/cpu:0'), tf.name_scope("embedding"):
+        embeddings=tf.Variable(embeddings,trainable=True,name="embeddings")
+        #Weights = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name="Weights")
+        ## shape:[None, sequence_length, embedding_size]
+        embedded_chars = tf.nn.embedding_lookup(embeddings, input_x)
+        # 添加一个维度，shape:[None, sequence_length, embedding_size, 1]
+        embedded_chars_expanded = tf.expand_dims(embedded_chars, -1)
+    
+    # Create a convolution + maxpool layer for each filter size
+    pooled_outputs = []
+    for i, filter_size in enumerate(filter_sizes):
+        with tf.name_scope("conv-maxpool-%s" % filter_size):
+            # Convolution Layer
+            filter_shape = [filter_size, embedding_size, 1, num_filters]
+            W = tf.Variable(
+                tf.truncated_normal(filter_shape, stddev=0.1), name="W")
+            b = tf.Variable(
+                tf.constant(0.1, shape=[num_filters]), name="b")
+            conv = tf.nn.conv2d(
+                embedded_chars_expanded,
+                W,
+                strides=[1, 1, 1, 1],
+                padding="VALID",
+                name="conv")
+            # Apply nonlinearity
+            h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+            # Maxpooling over the outputs
+            pooled = tf.nn.max_pool(
+                h,
+                ksize=[1, sequence_length - filter_size + 1, 1, 1],
+                strides=[1, 1, 1, 1],
+                padding='VALID',
+                name="pool")
+            pooled_outputs.append(pooled)
+    
+    # Combine all the pooled features
+    num_filters_total = num_filters * len(filter_sizes)
+    print("num_filters_total:", num_filters_total)
+    h_pool = tf.concat(pooled_outputs, 3)
+    h_pool_flat = tf.reshape(h_pool, [-1, num_filters_total])
+    
+    # Add dropout
+    with tf.name_scope("dropout"):h_drop = tf.nn.dropout(h_pool_flat,dropout_keep_prob)
+    
+    # Final (unnormalized) scores and predictions
+    with tf.name_scope("output"):
+        W = tf.get_variable(
+            "W",
+            shape=[num_filters_total, num_classes],
+            initializer=tf.contrib.layers.xavier_initializer())
+        b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
+        scores = tf.nn.xw_plus_b(h_drop, W, b, name="scores")
+        
+    # 定义loss
+    with tf.name_scope("loss"):
+        loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=scores, labels=input_y))
+    
+    # 定义优化器
+    with tf.name_scope("optimizer"):
+        optimizer = tf.train.AdamOptimizer(1e-3).minimize(loss)
+    # 定义saver，只保存最新的5个模型
+    saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
+    #------------------------------------------endding define network-----------------------------------------#
+
+    #---------------------------------------------  run  ---------------------------------------------#
+    max_score = 0
+    max_score_iter = 0
+
+    with tf.Session() as sess:
+        predict_top_5 = tf.nn.top_k(scores, k=5)
+        label_top_5 = tf.nn.top_k(input_y, k=5) 
+        sess.run(tf.global_variables_initializer())
+
+        if os.path.exists(FLAGS.checkpoint_file + '.index'):
+            saver.restore(sess, FLAGS.checkpoint_file)
+            print('restore from checkpoint file: %s' % FLAGS.checkpoint_file)
+        else:
+            print('%s no exists!' % (FLAGS.checkpoint_file + '.index'))
+
+        i = 0
+        # 生成数据
+        batches = batch_iter(list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
+        for batch in batches:
+            i = i + 1
+            # 得到一个batch的数据
+            x_batch, y_batch = zip(*batch)
+            # 优化模型
+            sess.run([optimizer],feed_dict={input_x:x_batch, input_y:y_batch, dropout_keep_prob:FLAGS.dropout_keep_prob})
+    
+            # 每训练50次测试1次
+            if (i % FLAGS.evaluate_every == 0):
+                print ("Evaluation:step",i)
+                predict_5, label_5, _loss = sess.run([predict_top_5,label_top_5,loss],feed_dict={input_x:x_batch,
+                                                                                          input_y:y_batch,
+                                                                                          dropout_keep_prob:FLAG.dropout_keep_prob})
+                #print ("label:",label_5[1][:5])
+                #print ("predict:",predict_5[1][:5])
+                #print ("predict:",predict_5[0][:5])
+                predict_label_and_marked_label_list = []
+                for predict,label in zip(predict_5[1],label_5[1]):
+                    predict_label_and_marked_label_list.append((list(predict),list(label)))
+                score = eval(predict_label_and_marked_label_list)
+                print ("Evaluation: \t step: %d \t loss: %f \t score: %f (max: %f) " % (i, _loss, score, max_score))
+                #print("score:",score)
+    
+            # 每训练200次保存1次模型
+            if (i % FLAGS.checkpoint_every == 0):
+                path = saver.save(sess, "models/model", global_step=i)
+                print("Saved model checkpoint to {}".format(path))
+
+                max_score_iter = i
+                max_score = score
+    print('max score: %f \t max_score_iter: %d' % (max_score, max_score_iter))
+    #eval([([1, 2, 3, 4, 5], [4, 5, 6, 7])])
+    return max_score_iter
+    #-----------------------------------------endding  run  -------------------------------------------#
+
+
+
+if __name__ == '__main__':
+    run_training()
+    
+
+    #last_max_score_iter = 47700
+    #for i in range(10):
+    #    data_file = './ieee_zhihu_cup/data_topic_block_%d.txt' % i
+    #    checkpoint_file = './models/model-%d' % last_max_score_iter
+    #    last_max_score_iter = run_training(data_file, checkpoint_file)

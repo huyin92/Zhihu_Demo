@@ -87,6 +87,17 @@ for i in tqdm(xrange(data_topic.shape[0])):
     data_topic.iloc[i][1] = new_label[:-1]
 print(data_topic.iloc[:5])
 
+data_idx = [True] * data_topic.shape[0]
+
+for i in tqdm(xrange(data_topic.shape[0])):
+    try:
+        data_topic.iloc[i][0].split(',')
+    except Exception as e:
+        data_idx[i] = False
+        print("this row can not split:",data_topic.iloc[i][0])
+	    print(i, e)
+
+data_topic = data_topic.iloc[data_idx][:]
 
 # In[8]:
 

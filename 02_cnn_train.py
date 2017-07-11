@@ -254,16 +254,6 @@ def run_training(data_file = '', checkpoint_file = ''):
     #构建与vocab_dict相对应的word embeddings(shape=[vocab_size, embedding_size])
     embeddings_dict=load_embedding_dict(FLAGS.embedding_file)
 
-    embeddings = np.zeros([len(vocab_dict), 256], dtype=np.float32)
-
-    # embeddings[0] = np.zeros(256, dtype=np.float32)    #第0行置0
-
-    # for i in  tqdm(xrange(len(vocab_dict)-1)):
-    for k, v in tqdm(vocab_dict.items()):
-        #如果字典vocab_dict的词在embeddings_dict词典中出现则按照其对应的词序添加进embeddings词向量
-        # if vocab_dict[i+1] in embeddings_dict:    
-        if v in embeddings_dict:    
-            embeddings[k] = embeddings_dict[v]
 
         else: #如果在词向量字典中找不到对应的词向量则随机生成
             embeddings[k] = np.array(np.random.uniform(-1.0, 1.0,size=[FLAGS.embedding_dim]),dtype=np.float32)
@@ -400,7 +390,7 @@ def run_training(data_file = '', checkpoint_file = ''):
             if (i % FLAGS.evaluate_every == 0):
                 predict_5, label_5, _loss = sess.run([predict_top_5,label_top_5,loss],feed_dict={input_x:x_batch,
                                                                                           input_y:y_batch,
-                                                                                          dropout_keep_prob: 1.0})
+
                 #print ("label:",label_5[1][:5])
                 #print ("predict:",predict_5[1][:5])
                 #print ("predict:",predict_5[0][:5])

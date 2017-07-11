@@ -123,7 +123,7 @@ tf.flags.DEFINE_float("l2_reg_lambda", 0.0005, "L2 regularization lambda (defaul
 
 # Training parameters
 # 批次大小
-tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 256, "Batch Size (default: 64)")
 # 迭代周期
 tf.flags.DEFINE_integer("num_epochs", 10, "Number of training epochs (default: 10)")
 # 多少step测试一次
@@ -131,7 +131,7 @@ tf.flags.DEFINE_integer("evaluate_every", 50, "Evaluate model on dev set after t
 # 多少step保存一次模型
 tf.flags.DEFINE_integer("checkpoint_every", 200, "Save model after this many steps (default: 200)")
 # 保存多少个模型
-tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+tf.flags.DEFINE_integer("num_checkpoints", 1, "Number of checkpoints to store (default: 5)")
 
 tf.flags.DEFINE_string("checkpoint_file", "", "model restore")
 #--------------------------------------endding define Parameters-------------------------------------------#

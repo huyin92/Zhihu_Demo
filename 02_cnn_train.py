@@ -391,8 +391,8 @@ def run_training(data_file = '', checkpoint_file = ''):
             # 每训练50次测试1次
             if (i % FLAGS.evaluate_every == 0):
                 predict_5, label_5, _loss = sess.run([predict_top_5,label_top_5,loss],feed_dict={input_x:x_batch,
-												 input_y:y_batch,
-												 dropout_keep_prob:1.0})					 
+                                                                                          input_y:y_batch,
+                                                                                          dropout_keep_prob:1.0})					 
                 #print ("label:",label_5[1][:5])
                 #print ("predict:",predict_5[1][:5])
                 #print ("predict:",predict_5[0][:5])

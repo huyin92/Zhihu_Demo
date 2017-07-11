@@ -353,7 +353,7 @@ def run_training(data_file = '', checkpoint_file = ''):
         
     # 定义loss
     with tf.name_scope("loss"):
-        loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=scores, labels=input_y))
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=scores, labels=input_y))
     
     # 定义优化器
     with tf.name_scope("optimizer"):

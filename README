@@ -1,5 +1,6 @@
 ###知乎看山杯demo###
-01_data_handle.py 对数据进行预处理
+00_data_handle.py 对数据进行预处理
+01_create_dic.py  创建词典
 02_cnn_train.py   训练文件
 03_eval.py        对测试数据进行评估
 04_predict.py     转换成所需要的格式

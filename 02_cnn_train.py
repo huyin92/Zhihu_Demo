@@ -257,9 +257,9 @@ def run_training(data_file = '', checkpoint_file = ''):
     for k,v in tqdm(vocab_dict.items()):
 	#如果字典vocab_dict的词在embeddings_dict词典中出现则按照其对应的词序添加进embeddings词向量
 	if v in embeddings_dict:
-	    embeddings[k] = embeddings_dict[v]
-        else: #如果在词向量字典中找不到对应的词向量则随机生成
-            embeddings[k] = np.array(np.random.uniform(-1.0, 1.0,size=[FLAGS.embedding_dim]),dtype=np.float32)
+		embeddings[k] = embeddings_dict[v]
+	else: #如果在词向量字典中找不到对应的词向量则随机生成
+		embeddings[k] = np.array(np.random.uniform(-1.0, 1.0,size=[FLAGS.embedding_dim]),dtype=np.float32)
 
     # embeddings=np.array(embeddings)
     print("embeddings.shape:",embeddings.shape)

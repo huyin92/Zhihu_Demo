@@ -194,8 +194,7 @@ def run_training(data_file = '', checkpoint_file = ''):
 
         # 如果分类数大于5，只取前5个分类
         ind = [int(t) for t in temp[0: min(5, len(temp))]]
-        if len(temp) > 5:
-            print(len(temp))
+        # if len(temp) > 5: print(len(temp))
 
         # 设置标签的对应位置为1，其余位置为0
         y[data_ind][ind] = 1
@@ -253,7 +252,7 @@ def run_training(data_file = '', checkpoint_file = ''):
     # embeddings[0] = np.zeros(256, dtype=np.float32)    #第0行置0
 
     # for i in  tqdm(xrange(len(vocab_dict)-1)):
-    for k, v in tqdm(vocab_dict.items())
+    for k, v in tqdm(vocab_dict.items()):
         #如果字典vocab_dict的词在embeddings_dict词典中出现则按照其对应的词序添加进embeddings词向量
         # if vocab_dict[i+1] in embeddings_dict:    
         if v in embeddings_dict:    
@@ -392,7 +391,7 @@ def run_training(data_file = '', checkpoint_file = ''):
                 print ("Evaluation:step",i)
                 predict_5, label_5, _loss = sess.run([predict_top_5,label_top_5,loss],feed_dict={input_x:x_batch,
                                                                                           input_y:y_batch,
-                                                                                          dropout_keep_prob:FLAG.dropout_keep_prob})
+                                                                                          dropout_keep_prob: FLAGS.dropout_keep_prob})
                 #print ("label:",label_5[1][:5])
                 #print ("predict:",predict_5[1][:5])
                 #print ("predict:",predict_5[0][:5])

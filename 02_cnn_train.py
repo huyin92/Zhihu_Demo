@@ -106,7 +106,7 @@ def eval(predict_label_and_marked_label_list):
 # validation数据集占比
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
 # 数据集
-tf.flags.DEFINE_string("data_file", "./ieee_zhihu_cup/data_topic_block_0.txt", "Data source for the train data.")
+tf.flags.DEFINE_string("data_file", "./ieee_zhihu_cup/data_topic.txt", "Data source for the train data.")
 # 词向量
 tf.flags.DEFINE_string("embedding_file", "./ieee_zhihu_cup/word_embedding.txt", "embedding source for the train data.")
 # Model Hyperparameters

@@ -106,7 +106,7 @@ def eval(predict_label_and_marked_label_list):
 # validation数据集占比
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
 # 数据集
-tf.flags.DEFINE_string("data_file", "./ieee_zhihu_cup/data_topic_block_0.txt", "Data source for the train data.")
+tf.flags.DEFINE_string("data_file", "./ieee_zhihu_cup/data_topic.txt", "Data source for the train data.")
 # 词向量
 tf.flags.DEFINE_string("embedding_file", "./ieee_zhihu_cup/word_embedding.txt", "embedding source for the train data.")
 # Model Hyperparameters
@@ -123,7 +123,7 @@ tf.flags.DEFINE_float("l2_reg_lambda", 0.0005, "L2 regularization lambda (defaul
 
 # Training parameters
 # 批次大小
-tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 256, "Batch Size (default: 64)")
 # 迭代周期
 tf.flags.DEFINE_integer("num_epochs", 10, "Number of training epochs (default: 10)")
 # 多少step测试一次
@@ -131,7 +131,7 @@ tf.flags.DEFINE_integer("evaluate_every", 50, "Evaluate model on dev set after t
 # 多少step保存一次模型
 tf.flags.DEFINE_integer("checkpoint_every", 200, "Save model after this many steps (default: 200)")
 # 保存多少个模型
-tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+tf.flags.DEFINE_integer("num_checkpoints", 1, "Number of checkpoints to store (default: 5)")
 
 tf.flags.DEFINE_string("checkpoint_file", "", "model restore")
 #--------------------------------------endding define Parameters-------------------------------------------#
@@ -247,20 +247,24 @@ def run_training(data_file = '', checkpoint_file = ''):
     
     #构建与vocab_dict相对应的word embeddings(shape=[vocab_size, embedding_size])
     embeddings_dict=load_embedding_dict(FLAGS.embedding_file)
-    embeddings=[]
-    embeddings.append(np.zeros(256,dtype=np.float32))    #第0行置0
-    for i in  tqdm(xrange(len(vocab_dict)-1)):
+
+    embeddings = np.zeros([len(vocab_dict), 256], dtype=np.float32)
+
+    # embeddings[0] = np.zeros(256, dtype=np.float32)    #第0行置0
+
+    # for i in  tqdm(xrange(len(vocab_dict)-1)):
+    for k, v in tqdm(vocab_dict.items())
         #如果字典vocab_dict的词在embeddings_dict词典中出现则按照其对应的词序添加进embeddings词向量
-        if vocab_dict[i+1] in embeddings_dict:    
-            embeddings.append(embeddings_dict[vocab_dict[i+1]])
-        #如果在词向量字典中找不到对应的词向量则随机生成
-        else:
-            embeddings.append(np.array(np.random.uniform(-1.0, 1.0,size=[FLAGS.embedding_dim]),dtype=np.float32))
-    embeddings=np.array(embeddings)
+        # if vocab_dict[i+1] in embeddings_dict:    
+        if v in embeddings_dict:    
+            embeddings[k] = embeddings_dict[v]
+
+        else: #如果在词向量字典中找不到对应的词向量则随机生成
+            embeddings[k] = np.array(np.random.uniform(-1.0, 1.0,size=[FLAGS.embedding_dim]),dtype=np.float32)
+
+    # embeddings=np.array(embeddings)
     print("embeddings.shape:",embeddings.shape)
     print(embeddings[0:3])
-
-
 
     # Split train/test set
     # 数据集切分为两部分，训练集和验证集

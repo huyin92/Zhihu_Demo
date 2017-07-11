@@ -37,7 +37,7 @@ def load_embedding_dict(embedding_file):
     return embeddings_dict
 
 # 生成批次数据
-def batch_iter(data, batch_size, num_epochs, shuffle=False):
+def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """
     Generates a batch iterator for a dataset.
     """
@@ -45,18 +45,25 @@ def batch_iter(data, batch_size, num_epochs, shuffle=False):
     data_size = len(data)
     # 每个epoch的num_batch
     num_batches_per_epoch = int((len(data) - 1) / batch_size) + 1
+
     print("num_batches_per_epoch:",num_batches_per_epoch)
+
     for epoch in range(num_epochs):
         # Shuffle the data at each epoch
+
+        print("epoch:", epoch)
+
         if shuffle:
             shuffle_indices = np.random.permutation(np.arange(data_size))
             shuffled_data = data[shuffle_indices]
         else:
             shuffled_data = data
+
         for batch_num in range(num_batches_per_epoch):
             start_index = batch_num * batch_size
             end_index = min((batch_num + 1) * batch_size, data_size)
             yield shuffled_data[start_index:end_index]
+
 # In[ ]:
 # 知乎提供的评测方案
 def eval(predict_label_and_marked_label_list):
@@ -311,6 +318,8 @@ def run_training(data_file = '', checkpoint_file = ''):
         with tf.name_scope("conv-maxpool-%s" % filter_size):
             # Convolution Layer
             filter_shape = [filter_size, embedding_size, 1, num_filters]
+			# w_init_max = 4 * np.sqrt(6. / (num_filters_total + num_classes))
+            # W = tf.Variable(tf.random_uniform([num_filters_total, num_classes], minval=-w_init_max, maxval=w_init_max), name="W")
             W = tf.Variable(
                 tf.truncated_normal(filter_shape, stddev=0.1), name="W")
             b = tf.Variable(
@@ -379,6 +388,7 @@ def run_training(data_file = '', checkpoint_file = ''):
         i = 0
         # 生成数据
         batches = batch_iter(list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
+        
         for batch in batches:
             i = i + 1
             # 得到一个batch的数据
@@ -388,10 +398,9 @@ def run_training(data_file = '', checkpoint_file = ''):
     
             # 每训练50次测试1次
             if (i % FLAGS.evaluate_every == 0):
-                print ("Evaluation:step",i)
                 predict_5, label_5, _loss = sess.run([predict_top_5,label_top_5,loss],feed_dict={input_x:x_batch,
                                                                                           input_y:y_batch,
-                                                                                          dropout_keep_prob: FLAGS.dropout_keep_prob})
+                                                                                          dropout_keep_prob: 1.0})
                 #print ("label:",label_5[1][:5])
                 #print ("predict:",predict_5[1][:5])
                 #print ("predict:",predict_5[0][:5])
@@ -402,13 +411,13 @@ def run_training(data_file = '', checkpoint_file = ''):
                 print ("Evaluation: \t step: %d \t loss: %f \t score: %f (max: %f) " % (i, _loss, score, max_score))
                 #print("score:",score)
     
-            # 每训练200次保存1次模型
-            if (i % FLAGS.checkpoint_every == 0):
-                path = saver.save(sess, "models/model", global_step=i)
-                print("Saved model checkpoint to {}".format(path))
+                if (score > max_score):
+                    path = saver.save(sess, "models/model", global_step=i)
+                    print("Saved model checkpoint to {}".format(path))
 
-                max_score_iter = i
-                max_score = score
+                    max_score_iter = i
+                    max_score = score
+
     print('max score: %f \t max_score_iter: %d' % (max_score, max_score_iter))
     #eval([([1, 2, 3, 4, 5], [4, 5, 6, 7])])
     return max_score_iter

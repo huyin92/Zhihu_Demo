@@ -248,10 +248,11 @@ def run_training(data_file = '', checkpoint_file = ''):
     #构建与vocab_dict相对应的word embeddings(shape=[vocab_size, embedding_size])
     embeddings_dict=load_embedding_dict(FLAGS.embedding_file)
     embeddings=[]
-    for i in  tqdm(xrange(len(vocab_dict))):
+    embeddings.append(np.zeros(256,dtype=np.float32))    #第0行置0
+    for i in  tqdm(xrange(len(vocab_dict)-1)):
         #如果字典vocab_dict的词在embeddings_dict词典中出现则按照其对应的词序添加进embeddings词向量
-        if vocab_dict[i] in embeddings_dict:    
-            embeddings.append(embeddings_dict[vocab_dict[i]])
+        if vocab_dict[i+1] in embeddings_dict:    
+            embeddings.append(embeddings_dict[vocab_dict[i+1]])
         #如果在词向量字典中找不到对应的词向量则随机生成
         else:
             embeddings.append(np.array(np.random.uniform(-1.0, 1.0,size=[FLAGS.embedding_dim]),dtype=np.float32))
